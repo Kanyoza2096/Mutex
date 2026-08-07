@@ -1,0 +1,2 @@
+- [Chrome UI ghost/duplication fix](chrome-rendering-fix.md) — blanket `* { backface-visibility: hidden }` on Chrome causes GPU layer ghosting; never re-add it
+- [Theme contrast lift](theme-contrast.md) — dark-mode surfaces were lifted to improve hierarchy; four pages also had raw hex overrides that must stay in sync with CSS vars

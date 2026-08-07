@@ -1,0 +1,608 @@
+MUTEX FRONTEND — PRODUCTION FIX SPECIFICATION
+
+Purpose
+
+This document defines the remaining frontend-side fixes required to make Mutex correctly integrate with the AI Automation Platform backend.
+
+The objective is to eliminate frontend/backend contract mismatches, TypeScript/build regressions, authentication inconsistencies, data-loss risks, and incomplete feature implementations without unnecessarily restructuring the application.
+
+---
+
+1. "src/lib/api.ts"
+
+Required fixes
+
+1.1 Complete JWT authentication migration
+
+Current problem:
+
+The central API client still explicitly constructs requests using the master token.
+
+Required behavior:
+
+Supabase session
+      ↓
+access_token
+      ↓
+Authorization: Bearer <JWT>
+
+The master token should not be the normal authentication mechanism for user requests.
+
+1.2 Centralize authentication
+
+All normal API requests should go through the central API layer.
+
+Avoid individual pages manually constructing:
+
+Authorization
+Content-Type
+base URL
+master token
+
+1.3 Preserve workspace context
+
+The API layer should consistently support:
+
+workspace_id
+
+where the backend endpoint supports tenant/workspace isolation.
+
+Do not add frontend workspace parameters to endpoints until the backend actually supports them.
+
+1.4 Standardize API error handling
+
+Create consistent handling for:
+
+- 401
+- 403
+- 404
+- 409
+- 422
+- 429
+- 500
+- network failure
+- timeout
+
+The UI should distinguish authentication failure from validation failure and server failure.
+
+---
+
+2. "src/lib/fetchInterceptor.ts"
+
+Required fixes
+
+2.1 Finish JWT migration
+
+The interceptor already protects against the empty-base URL token-leak issue.
+
+Keep that protection.
+
+But make the interceptor and "api.ts" agree on one authentication strategy.
+
+2.2 Do not overwrite explicit public requests
+
+Requests such as:
+
+- login
+- health checks
+- public resources
+
+must not receive private authorization headers unnecessarily.
+
+2.3 Prevent duplicate authentication logic
+
+There should be one canonical authentication mechanism rather than:
+
+api.ts
++
+fetchInterceptor.ts
++
+individual page fetch()
+
+---
+
+3. "src/store/useStore.ts"
+
+Required fixes
+
+3.1 Complete workspace state consistency
+
+Ensure the selected workspace is:
+
+- persisted appropriately
+- restored on refresh
+- available before tenant-scoped API requests execute
+- cleared when the user changes account
+- synchronized with backend authorization
+
+3.2 Avoid API calls before workspace initialization
+
+Pages should not make:
+
+GET /resource
+
+before the correct workspace context is ready.
+
+This is particularly important for:
+
+- Posts
+- Users
+- Analytics
+- Social Accounts
+- Workflows
+- API Manager
+
+---
+
+4. "src/components/Layout.tsx"
+
+Required fixes
+
+4.1 Ensure workspace/auth initialization happens once
+
+Prevent repeated initialization from causing API hammering.
+
+4.2 Verify socket lifecycle
+
+Ensure Socket.IO:
+
+connect
+→ authenticate
+→ subscribe
+→ receive events
+→ cleanup
+
+does not repeatedly reconnect because of unstable React dependencies.
+
+4.3 Avoid duplicated global API calls
+
+Global layout-level requests should not be repeated by individual pages unnecessarily.
+
+---
+
+5. "src/pages/Posts.tsx"
+
+Priority: P0
+
+This page needs a complete API-contract alignment.
+
+5.1 Brand-specific publishing
+
+The selected brand must be passed to the backend.
+
+Never rely on:
+
+backend → first active brand
+
+5.2 Scheduling
+
+If the UI allows:
+
+Publish now
+Schedule later
+
+then send a real "scheduled_for" value.
+
+Do not show a scheduling control if the backend does not support it.
+
+5.3 AI generation
+
+Ensure:
+
+topic
+category
+brand
+platforms
+ai_generate
+
+are sent according to the backend contract.
+
+5.4 Workspace isolation
+
+Pass workspace context only through the canonical API mechanism.
+
+5.5 Job status
+
+After publishing:
+
+create job
+→ receive job ID
+→ subscribe/poll
+→ update UI
+→ show final result
+
+Do not treat an accepted request as a successful publication.
+
+---
+
+6. "src/pages/WorkflowRuns.tsx"
+
+Required fixes
+
+6.1 Fix "isDuplicate()" calls
+
+The deduplication function was changed to require an event type.
+
+Update calls such as:
+
+isDuplicate(msg.id)
+
+to:
+
+isDuplicate("new_message", msg.id)
+
+and equivalent event types for posts, jobs, alerts, etc.
+
+This is currently a potential TypeScript/build blocker.
+
+6.2 Align workflow status model
+
+Do not assume backend provides:
+
+progress
+current_step
+
+unless those fields actually exist.
+
+Either:
+
+- implement them backend-side, or
+- make frontend consume the actual backend response.
+
+6.3 Resume behavior
+
+Keep the honest fallback until a real resume endpoint exists.
+
+Do not label a newly triggered workflow as "resumed."
+
+---
+
+7. "src/pages/SocialAccounts.tsx"
+
+Priority: P0
+
+7.1 Never overwrite credentials with blank strings
+
+When editing an existing account:
+
+blank secret field
+
+must mean:
+
+KEEP EXISTING SECRET
+
+not:
+
+replace existing secret with ""
+
+7.2 Omit unchanged secrets from update requests
+
+Do not send:
+
+{
+  "access_token": ""
+}
+
+Send no access-token field when the user hasn't changed it.
+
+7.3 Centralize requests
+
+Remove direct authentication/header construction and use "api.ts".
+
+7.4 Treat secret values as write-only
+
+The frontend should never expect existing access tokens to be returned.
+
+---
+
+8. "src/pages/Users.tsx"
+
+Priority: P0
+
+The page now uses real API calls, which is correct architecturally.
+
+However, it must be synchronized with the backend's actual user-management contract.
+
+Required work
+
+Verify and align:
+
+GET /users
+POST /users
+PUT /users/{id}
+DELETE /users/{id}
+
+with backend implementation.
+
+Until those endpoints exist, don't pretend the UI has complete CRUD support.
+
+Additional requirements
+
+Handle:
+
+- duplicate email
+- invalid role
+- unauthorized role changes
+- deleting current user
+- deleting last administrator
+- workspace membership
+- loading states
+- optimistic update rollback
+
+---
+
+9. "src/pages/Tenants.tsx"
+
+Priority: P0
+
+Workspace creation currently does not match backend requirements.
+
+Required fix
+
+Synchronize the frontend request with the actual backend "WorkspaceCreateRequest".
+
+The frontend should not send unsupported fields unless the backend accepts them.
+
+Verify:
+
+name
+slug
+description
+owner
+plan
+
+against the actual backend contract.
+
+Also verify
+
+- workspace selection
+- workspace deletion
+- workspace switching
+- workspace membership
+- duplicate slug handling
+
+---
+
+10. "src/pages/ApiAnalytics.tsx"
+
+Required fixes
+
+The removal of fabricated historical analytics should remain.
+
+Do not reintroduce fake values.
+
+Required work
+
+Make the UI clearly distinguish:
+
+real data
+no historical data
+loading
+API unavailable
+
+Do not render:
+
+0
+
+when the actual meaning is:
+
+unknown
+
+---
+
+11. "src/pages/Monitoring.tsx"
+
+Required fixes
+
+The polling fallback is now conceptually correct.
+
+However, verify the actual backend contract for:
+
+/logs/recent
+/logs/stream
+/logs/stats
+
+The frontend must not assume endpoints that don't exist.
+
+Required states
+
+Implement clear handling for:
+
+Realtime connected
+Realtime unavailable → polling
+Backend unavailable
+No logs
+Loading
+
+---
+
+12. "src/pages/Features.tsx"
+
+Required fixes
+
+The frontend now sends feature toggle requests.
+
+Verify the backend actually persists the feature state.
+
+If backend persistence is not implemented, the UI must not imply that the setting is permanently saved.
+
+---
+
+13. "src/pages/APIManager.tsx"
+
+Required fixes
+
+The current UI contains fields such as:
+
+- workspace
+- expiry
+- type
+
+but some of these are not yet represented in the backend key model.
+
+Choose one of two approaches:
+
+Option A — Implement them
+
+Make API keys genuinely support:
+
+workspace scope
+expiration
+key type
+revocation
+rotation
+permissions
+
+Option B — Remove unsupported controls
+
+Do not allow users to configure values that aren't persisted.
+
+---
+
+14. "src/pages/PdfMerger.tsx"
+
+Priority: P0
+
+This page requires substantial contract correction.
+
+14.1 File transport
+
+Current approach:
+
+PDF
+→ base64
+→ JSON
+
+is unsuitable for large PDF files.
+
+Use:
+
+multipart upload
+→ backend/object storage
+→ file ID
+→ plugin execution
+
+or another backend-supported file transport.
+
+14.2 File size
+
+Frontend currently allows files much larger than the backend's request limit.
+
+The frontend limit must match the actual backend/storage architecture.
+
+14.3 PDF merge
+
+Ensure:
+
+upload
+→ backend
+→ PDF plugin
+→ output
+→ storage
+→ downloadable URL
+
+works end-to-end.
+
+14.4 Smart Merge
+
+The AI prompt must actually be sent to the AI service.
+
+Do not merely construct a prompt and then call a generic AI generation method that ignores it.
+
+14.5 Compression
+
+Do not display a quality slider unless the backend genuinely uses the selected quality.
+
+14.6 Split and conversion
+
+Ensure generated files become downloadable outputs.
+
+The frontend should not receive only metadata for a file that exists only in backend memory.
+
+---
+
+15. Other frontend-wide cleanup
+
+Search the entire repository for:
+
+fetch(
+axios(
+Authorization:
+masterToken
+localStorage
+setInterval(
+setTimeout(
+useEffect(
+socket.connect(
+socket.disconnect(
+
+and audit every occurrence.
+
+Goal:
+
+ONE API abstraction
+ONE authentication mechanism
+ONE workspace context
+ONE socket lifecycle
+ONE error model
+
+---
+
+Frontend files that should be touched
+
+Priority P0
+
+src/lib/api.ts
+src/lib/fetchInterceptor.ts
+src/store/useStore.ts
+src/pages/Posts.tsx
+src/pages/SocialAccounts.tsx
+src/pages/Users.tsx
+src/pages/Tenants.tsx
+src/pages/PdfMerger.tsx
+src/pages/WorkflowRuns.tsx
+
+Priority P1
+
+src/components/Layout.tsx
+src/pages/Monitoring.tsx
+src/pages/Features.tsx
+src/pages/APIManager.tsx
+src/pages/ApiAnalytics.tsx
+
+Possibly affected after contract changes
+
+src/pages/*
+src/components/*
+src/hooks/*
+src/types/*
+src/lib/*
+
+Only modify these if the contract audit proves they depend on the changed API models.
+
+---
+
+Frontend completion criteria
+
+Mutex should eventually satisfy:
+
+TypeScript build       ✅
+Lint                   ✅
+No fake API data       ✅
+No master-token leakage ✅
+JWT authentication     ✅
+Workspace isolation    ✅
+Brand-specific posting ✅
+Real scheduling        ✅
+Real job tracking      ✅
+Users CRUD             ✅
+Tenant CRUD            ✅
+Social secret safety   ✅
+Monitoring fallback    ✅
+PDF upload             ✅
+PDF execution          ✅
+PDF download           ✅
+No endpoint mismatch   ✅
+No uncontrolled polling ✅
+
+No frontend feature should claim success when the backend only accepted the request.

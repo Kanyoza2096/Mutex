@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="theme-color" content="#0A0E1A"/>
+  <title>Kanyoza — Offline</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0A0E1A;color:#E2E8F0;font-family:'JetBrains Mono',monospace,system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+    .card{max-width:420px;width:100%;background:#0F1629;border:1px solid #1E293B;border-radius:20px;padding:40px;text-align:center}
+    .icon{width:64px;height:64px;background:linear-gradient(135deg,#1a1f35,#0A0E1A);border:1px solid #4F46E5;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px}
+    .icon svg{width:36px;height:36px}
+    h1{font-size:20px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;color:#F8FAFC}
+    .badge{display:inline-block;background:#4F46E5;background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:3px 10px;border-radius:99px;margin-bottom:20px}
+    p{font-size:12px;color:#64748B;line-height:1.7;margin-bottom:28px}
+    .status{font-size:10px;color:#475569;letter-spacing:.1em;text-transform:uppercase;border-top:1px solid #1E293B;padding-top:20px;margin-top:4px}
+    .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#EF4444;margin-right:6px;vertical-align:middle;animation:pulse 1.5s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    button{background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:8px;font-family:inherit;transition:opacity .2s}
+    button:hover{opacity:.85}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22 4L10 20h8l-2 12 14-18h-8z" fill="url(#g)" />
+        <defs><linearGradient id="g" x1="10" y1="4" x2="24" y2="36" gradientUnits="userSpaceOnUse"><stop stop-color="#818CF8"/><stop offset="1" stop-color="#4F46E5"/></linearGradient></defs>
+      </svg>
+    </div>
+    <div class="badge">Kanyoza Systems</div>
+    <h1>Uplink Offline</h1>
+    <p>No network connection detected. The command console requires an active connection to stream telemetry and sync data. Check your connection and retry.</p>
+    <button onclick="location.reload()">Retry Connection</button>
+    <div class="status">
+      <span class="dot"></span>
+      Uplink Status: Disconnected
+    </div>
+  </div>
+</body>
+</html>

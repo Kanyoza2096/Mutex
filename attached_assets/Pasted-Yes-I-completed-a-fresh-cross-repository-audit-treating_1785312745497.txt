@@ -1,0 +1,748 @@
+Yes. I completed a fresh cross-repository audit, treating the two repositories as one system rather than reviewing them independently:
+GitHub — `Kanyoza2096/Mutex`⁠�
+`Kanyoza2096/AI-Automation-Platform`⁠�
+I checked the frontend route map, pages, Zustand state/data layer, API abstraction, realtime layer, authentication, polling, PWA/build configuration, and the backend API contracts, authentication/RBAC, workspace isolation, scheduler/job architecture, social-account handling, AI configuration, analytics, workflow APIs, and observability.
+No code was modified during this audit.
+🧠 Executive verdict
+The system is much better than a typical prototype, but I would not call the combined platform production-ready yet.
+Current assessment
+Area
+Rating
+Mutex UI/UX
+9.2/10
+Frontend architecture
+8.8/10
+Backend architecture
+9.0/10
+AI/job architecture
+9.1/10
+Realtime architecture
+8.5/10
+API contract consistency
+6.8/10 🔴
+Multi-tenancy
+6.7/10 🔴
+Security
+6.9/10 🔴
+Observability
+6.8/10 🔴
+Performance/data fetching
+7.1/10 🟠
+Production readiness
+7.3/10
+Combined: ~7.4/10
+That may look lower than the earlier 8.6, but this is actually a better result, because this time I found several things that the previous audit did not catch.
+The architecture is strong. The problem is that some of the frontend features are pretending to be more complete than the backend contract currently makes them.
+🔴 P0 — Critical findings
+1. Mutex's HTTP interceptor can leak the master token
+This is one of the most serious frontend findings.
+fetchInterceptor.ts decides whether a request is an API call using:
+url.includes('/api/v1')
+|| url.includes(cleanBase)
+|| ...
+But if restEndpoint is empty:
+cleanBase = ''
+and:
+url.includes('')
+is always true.
+The interceptor can then add:
+Authorization: Bearer <masterToken>
+Content-Type: application/json
+to arbitrary requests.
+Why this matters
+Imagine the app makes:
+fetch("https://some-cdn.com/image.png")
+while restEndpoint === ''.
+The interceptor can treat it as an API request.
+That is potentially:
+Browser
+ ↓
+CDN / external service
+ ↓
+Authorization: Bearer MASTER_TOKEN
+🚨 P0 security bug.
+The API detection needs to require a non-empty, exact origin/base match.
+🔴 2. Supabase login does not actually establish backend authorization for Mutex
+The login page authenticates through Supabase, but after successful login it simply sets:
+kanyoza_authenticated = true
+and calls login().
+The actual backend requests are then authenticated through:
+masterToken
+from the frontend store/localStorage.
+So conceptually:
+User A
+   ↓
+Supabase login
+   ↓
+UI access
+
+BUT
+
+API requests
+   ↓
+MASTER TOKEN
+   ↓
+backend
+   ↓
+ADMIN ACCESS
+The backend actually supports Supabase JWT and workspace-specific API keys.
+But Mutex isn't using that architecture for normal operator authorization.
+Result
+If several users can access Mutex and all use the same master token, they effectively share the same backend privilege level.
+This defeats much of the backend RBAC/multi-tenant work.
+Severity: 🔴 P0
+🔴 3. Workspace creation is actually broken
+This one is on the backend.
+Mutex sends:
+name
+slug
+plan
+owner_email
+for workspace creation.
+But backend WorkspaceCreateRequest accepts:
+name
+id
+description
+instead.
+Worse, backend then constructs:
+Workspace(
+    id=ws_id,
+    name=body.name,
+    description=body.description
+)
+while the actual Workspace model requires:
+id
+name
+slug
+and has no description field.
+Result
+Add Workspace is broken.
+Severity: 🔴 P0
+This is one of the places where the backend itself genuinely needs correction.
+🔴 4. Posts API contract is still wrong
+Mutex now sends:
+caption
+topic
+category
+state
+platforms
+scheduled_for
+But backend's PostCreateRequest only accepts:
+caption
+topic
+category
+state
+And the backend's publish implementation does:
+POST /posts
+      ↓
+find all active brands
+      ↓
+first active brand
+      ↓
+trigger_for_brand()
+So the frontend's:
+selected brand
+custom caption
+selected platforms
+scheduled time
+are not being honored by this endpoint.
+This is a real functional mismatch.
+🔴 5. Schedule Later isn't implemented by /posts
+Mutex sends scheduled_for.
+Backend's PostCreateRequest doesn't accept it.
+The publish branch immediately triggers the brand scheduler.
+So:
+Mutex:
+Schedule for 18:00
+
+Backend:
+Trigger automation now
+That is a P0 product correctness issue.
+🔴 6. WorkflowRuns has a broken Trigger Run path
+WorkflowRuns.tsx uses:
+triggerPost()
+from api.ts.
+But forcePostNow() sends:
+POST /bot/post
+without brand_id.
+The current backend explicitly requires:
+brand_id
+and returns 400 if it isn't supplied.
+Therefore:
+Workflow Runs → Trigger Run can fail every time.
+The Scheduler page itself is better: it sends brand_id to /workflow/trigger.
+This reveals an important issue:
+Two frontend components are using two different generations of the API contract.
+🔴 7. Users page isn't actually managing backend users
+Users.tsx fetches /users initially.
+But adding a user simply does:
+setUsers(...)
+locally.
+Deleting a user does the same.
+Toggling active/inactive does the same.
+There is no backend mutation.
+So:
+Add User
+   ↓
+UI says "User added"
+   ↓
+refresh page
+   ↓
+User disappears
+Severity: 🔴 P0
+This page is currently a frontend mock/admin visualization, not a real user-management system.
+🔴 8. Feature toggles contain fake controls
+Features.tsx has:
+Real:
+GET /features
+POST /features/toggle
+Fake/local:
+Maintenance Mode
+Save Rate Config
+Maintenance mode only modifies React state.
+The "Save rate config" action is literally:
+toast.success('Rate config saved')
+with no backend request.
+Quick actions also point to endpoints that aren't part of the current backend contract, including /system/cache/clear.
+Severity: 🔴 P0/P1
+🔴 9. API Manager's advanced key types aren't actually supported
+Mutex allows:
+Admin
+Workspace
+Read-only
+Plugin
+Temporary
+and sends:
+workspace_id
+expires_in
+But backend's APIKeyGenerateRequest accepts only:
+label
+And the backend stores only:
+id
+label
+prefix
+hashed
+created_at
+revoked
+Therefore the UI is offering capabilities the backend doesn't implement.
+Severity: 🔴 P1
+🔴 10. Social-account credentials are still potentially exposed through platform_config
+The backend deliberately strips:
+access_token
+encrypted_credential
+from responses.
+Good.
+But platform credentials are moved into:
+platform_config
+and the response only removes the two top-level fields.
+For example, Facebook credentials may be stored under:
+platform_config.page_access_token
+platform_config.verify_token
+Those aren't stripped by the current response sanitization.
+And Mutex's edit screen reads the returned account data.
+Severity: 🔴 P0 security concern
+The backend needs a recursive credential redaction layer, not just two .pop() calls.
+🔴 11. Multi-tenant reads aren't consistently isolated
+The backend correctly applies ownership checks to many resource-specific routes, e.g. brand jobs.
+However, several global read endpoints don't scope data to the authenticated workspace:
+GET /posts
+GET /messages
+GET /analytics
+GET /analytics/performance
+GET /analytics/posts-performance
+GET /analytics/token-usage
+For example, /posts reads the entire post_history table.
+Likewise /messages gets recent messages globally.
+This conflicts with the backend's own stated multi-tenant model.
+Severity: 🔴 P0/P1
+🔴 12. Supabase realtime subscriptions aren't workspace-filtered
+Mutex subscribes to:
+messages INSERT
+posts INSERT
+alerts INSERT
+payloads INSERT
+without workspace filters.
+If the Supabase RLS policies don't strictly isolate these tables for the connected user, the browser can receive other tenants' events.
+Even if RLS currently prevents it, this frontend design doesn't explicitly establish tenant context.
+Severity: 🔴 P1
+🟠 13. Scheduler polling is excessive
+Your original suspicion was correct for jobs, not the brand-list endpoint.
+Current Scheduler:
+every 15 sec
+    ↓
+/bot/status
+/workflow/history
+/brands/{brand}/jobs
+The brand list itself is fetched on initial mount and after saving.
+So the precise conclusion is:
+Brand list     🟢
+Brand jobs     🔴 over-polled
+🟠 14. The entire frontend has multiple overlapping polling systems
+We now have:
+Scheduler          15 sec
+Workflow Runs       5 sec
+Audit Logs         15 sec
+Guardian           20 sec
+Monitoring         10 sec fallback
+Service Detail     10–15 sec
+Architecture       15 sec
+Prometheus         5 sec resources
+Global store       60/120 sec
+For example, WorkflowRuns polls every 5 seconds.
+Prometheus polls resources every 5 seconds.
+ServiceDetail runs several independent 10–15 second queries.
+This is too much for a system that already has Socket.IO.
+🔴 15. Monitoring's SSE implementation doesn't match the backend
+Monitoring expects:
+/logs/stream
+/logs/recent
+/logs/stats
+The API helper also exposes:
+/logs/recent
+/logs/stats
+/logs/clear
+I did not find those current log-stream endpoints in the scanned backend API contract.
+Even worse, on SSE failure:
+onerror
+   ↓
+cleanup()
+   ↓
+clear polling timer
+so the "polling fallback" can actually be cleared when the SSE connection fails.
+That's a real frontend logic bug.
+🔴 16. Live Logs inherits the same contract problem
+LiveLogs calls:
+fetchRecentLogs()
+fetchLogStats()
+connectLogStream()
+clearLogs()
+But those helpers map to the /logs/* API surface described above.
+So Live Logs isn't currently guaranteed to work against this backend.
+🟠 17. Workflow status contract is incomplete
+Frontend expects:
+status
+progress
+current_step
+Backend currently returns:
+status
+brands
+brands_running
+So the UI's progress bar and current step aren't actually backed by the current API.
+🟠 18. Workflow resume doesn't exist
+Mutex has:
+resumeWorkflow()
+and WorkflowRuns exposes Resume.
+But the current backend workflow routes contain:
+run
+history
+status
+pause
+trigger
+cancel
+rollback
+and I found no /workflow/resume route in the current contract.
+Result:
+Resume is broken.
+🟠 19. AI Engine has controls that don't control the AI
+AI Engine exposes:
+Temperature
+Top P
+but the chat mutation only sends:
+message
+through chatWithAI().
+So those sliders are presently UI-only.
+The proper AI Brain page, in contrast, sends actual configuration to /ai/config.
+This means AI Engine and AI Brain overlap, but one has partially fake controls.
+🟠 20. API Analytics contains fabricated historical data
+This is particularly important for a system claiming enterprise analytics.
+The chart does:
+Math.random()
+for historical API calls.
+So the chart can visually show:
+7-day API usage
+when most of those numbers aren't real.
+Prometheus also derives P50/P99 from local latency history rather than backend percentile telemetry.
+Production rule:
+Never fabricate operational metrics.
+If historical data isn't available:
+No historical data
+is better than an impressive-looking fake chart.
+🟠 21. Incident Center generates synthetic incident timestamps
+IncidentCenter uses:
+Math.random()
+to manufacture incident start times.
+It also creates incidents from current health/log state rather than persistent incident records.
+So it is currently an incident visualization, not a real incident-management system.
+That's fine if labeled as such; not fine if presented as authoritative incident history.
+🟠 22. Marketplace contains fake marketplace metadata
+The marketplace gets real plugins, which is good.
+But it generates:
+downloads = Math.random()
+rating = 4.8
+version = 1.0.0
+That's another example of UI data that looks real but isn't.
+🟠 23. Knowledge Base has an ownership hole on global deletion
+Brand-scoped knowledge creation/list/search correctly uses:
+require_workspace_ownership("brand", ...)
+But:
+DELETE /knowledge/{knowledge_id}
+doesn't perform the same ownership check before deletion.
+That means the global deletion endpoint is weaker than the brand-specific endpoints.
+Severity: 🟠 → potentially 🔴 depending on auth method
+🟠 24. Global frontend polling is redundant with Socket.IO
+The global Zustand store already receives:
+stats
+post_published
+new_message
+service_status
+plugin_status
+ai_provider_health
+ai_decision
+mission_status
+via Socket.IO.
+Yet it simultaneously runs:
+/dashboard/live
+/health/deep
+every 120 seconds, plus enterprise polling every 60 seconds.
+REST should be used primarily for:
+initial hydration
+reconciliation
+recovery
+rather than constantly competing with realtime state.
+🟡 25. Event deduplication is global rather than event-type aware
+Mutex has one global:
+_seenEventIds
+set.
+That means if two different event categories happen to share the same ID, one can suppress the other.
+Safer:
+post:123
+message:123
+alert:123
+job:123
+rather than:
+123
+🟡 26. Scheduler has an initialization race
+The Scheduler does:
+fetchBrands()
+    ↓
+sets selectedBrandId
+    ↓
+fetchStatus()
+inside one initial effect whose closure can still contain the old selectedBrandId.
+So on first load:
+No selected brand
+    ↓
+fetch brands
+    ↓
+select first brand
+    ↓
+fetchStatus() using old null
+    ↓
+brand jobs aren't loaded initially
+The 15-second refresh eventually corrects it.
+Not catastrophic, but it's a genuine race.
+🟡 27. The frontend TypeScript configuration is too permissive
+tsconfig.json does not enable:
+strict
+noUnusedLocals
+noUnusedParameters
+and allows JS.
+For an application this large, strict TypeScript would catch a significant number of contract errors earlier.
+🟡 28. PWA icons are external CDN URLs
+The PWA manifest uses external Flaticon URLs.
+For a production PWA, the icons should be packaged with the application.
+Otherwise:
+offline install
+      ↓
+external icon unavailable
+      ↓
+bad PWA metadata
+Use local assets.
+🟡 29. Auto-update PWA can reload the control console unexpectedly
+registerType: 'autoUpdate' is convenient, but for an admin/automation console it can potentially update/reload while the operator is:
+editing a post
+changing scheduler settings
+configuring credentials
+investigating an incident
+A controlled update prompt is safer for a mission-critical console.
+🟢 Things that are genuinely good
+I don't want the audit to sound like everything is broken — far from it.
+Strong frontend architecture
+The route system uses lazy loading and wraps pages in ErrorBoundary + Suspense.
+That's good production architecture.
+Strong backend job architecture
+The current BrandScheduler → JobService direction is correct, and /bot/post now returns a job_id.
+Strong brand-job isolation
+GET /brands/{brand_id}/jobs actually verifies workspace ownership.
+AI configuration is well integrated
+AIBrain correctly loads and saves model, temperature, safety and persona configuration.
+Socket.IO design is good
+Mutex's /dashboard connection, reconnection handling, event handlers and backend namespace are aligned.
+Social account CRUD has good credential-stripping intent
+The backend deliberately removes top-level secrets from responses and verifies workspace ownership.
+The remaining problem is the nested platform_config leakage.
+Security hardening in backend is substantial
+The backend has:
+request-size limits
+prompt injection filtering
+rate limiting
+correlation IDs
+hashed API keys
+security headers
+structured errors
+workspace ownership checks
+audit logging
+as documented and implemented in the API layer.
+That is a strong foundation.
+📋 Page-by-page audit
+Mutex page
+Result
+Main finding
+Dashboard
+🟢/🟡
+Good realtime dashboard; some derived/fallback values
+AI Brain
+🟢
+Strong backend integration
+AI Engine
+🟡
+Temperature/Top-P controls don't affect requests
+AI Chat
+🟢
+Good /ai/chat integration
+Workflows
+🟡
+Some API helpers are stale; current trigger path should be unified
+Workflow Runs
+🔴
+Trigger missing brand_id; Resume endpoint absent; 5s polling
+Posts
+🔴
+Custom publish/schedule/platform/brand contract mismatch
+Knowledge Base
+🟠
+Good brand scoping, global delete needs ownership
+Integrations
+🟢
+Mostly aligned
+MIS Manager
+🟢/🟡
+Plugin discovery works; command execution UI isn't implemented
+Messenger
+🟠
+15s polling; reply is Facebook-specific; some UI actions are decorative
+Analytics
+🟢/🟡
+Backend data exists but global/tenant scope needs attention
+Scheduler
+🟠
+Correct brand trigger, excessive job polling + initialization race
+Tasks
+🔴
+Local-only task management; no backend persistence
+API Manager
+🔴
+Advanced key types don't match backend
+Security
+🟢/🟡
+Strong dashboard but score is derived, not authoritative
+Users
+🔴
+CRUD is entirely local after initial fetch
+Audit Logs
+🟠
+15s polling; should use realtime/reconciliation
+Marketplace
+🟡
+Real plugin list, fake rating/download/version metadata
+Tenants
+🔴
+Workspace creation contract/backend model mismatch
+Brands
+🟢
+Strong CRUD/AI profile integration
+AI Profiles
+🟢
+Good workspace-scoped CRUD
+Features
+🔴
+Several fake/local controls and unsupported endpoints
+Monitoring
+🔴
+SSE/log API contract mismatch + broken fallback
+AI Chat
+🟢
+Good
+Payload Inspector
+🟢/🟡
+Realtime/local inspector; no durable history
+API Analytics
+🔴
+Historical chart uses random data
+Prometheus
+🟠
+Resource polling every 5s; synthetic percentile calculations
+Social Accounts
+🟠/🔴
+CRUD works, but nested credentials need redaction
+Guardian
+🟢/🟡
+Works conceptually; 20s polling
+Notifications
+🟠
+Backend endpoint needs verification/alignment
+Data Flow
+🟢/🟡
+Strong visualizer; topology is partly static
+System Architecture
+🟢/🟠
+Good visualization; 15s polling
+Service Detail
+🔴
+Depends on log APIs that don't match current backend
+Incident Center
+🟠
+Incidents are derived/synthetic, not persistent incidents
+Live Logs
+🔴
+Log endpoints/stream not aligned
+Settings
+🟠
+Connection/security architecture still too master-token-centric
+🧩 The most important architectural conclusion
+After this audit, I would not describe the system as:
+"Frontend is broken and backend is finished."
+That's too simplistic.
+The real situation is:
+                   KANYOZA PLATFORM
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+      MUTEX                         BACKEND
+   Control Plane                 Automation Core
+          │                             │
+          │       ┌─────────────────────┘
+          │       │
+          ▼       ▼
+      API CONTRACT LAYER
+             ⚠️
+       inconsistent in places
+There are three generations of frontend API usage currently coexisting:
+Generation 1 — older helpers
+api.ts
+workflow/resume
+logs/stream
+logs/recent
+logs/stats
+etc.
+Generation 2 — newer direct page integrations
+Scheduler.tsx
+brand_id
+/workflow/trigger
+BrandScheduler
+Generation 3 — new JobService architecture
+job_id
+automation_jobs
+BrandScheduler
+JobService
+Socket.IO
+The frontend needs to be consolidated around Generation 3.
+🎯 What should be fixed first
+Phase 1 — Security / correctness
+Fix fetchInterceptor token leakage.
+Stop using a shared master token as the normal frontend authorization mechanism.
+Fix nested social credential redaction.
+Fix workspace creation.
+Enforce workspace scoping on global reads.
+Fix global Supabase realtime tenant filtering.
+Phase 2 — Canonical API contract
+Create one canonical frontend API layer around:
+Workspace
+Brand
+AIProfile
+SocialAccount
+Job
+Post
+Workflow
+Analytics
+Health
+Realtime
+Then remove duplicated direct fetch() implementations.
+Phase 3 — Job-centric publishing
+Everything publishing-related should ultimately become:
+User
+ ↓
+selectedWorkspaceId
+ ↓
+selectedBrandId
+ ↓
+Job request
+ ↓
+JobService
+ ↓
+AI
+ ↓
+Render
+ ↓
+Publisher
+ ↓
+job_id
+ ↓
+Socket.IO
+ ↓
+Mutex
+No page should invent its own version of this.
+Phase 4 — Realtime-first
+Replace:
+5 sec
+10 sec
+15 sec
+20 sec
+30 sec
+60 sec
+120 sec
+polling everywhere with:
+REST
+  ↓
+initial hydration
+
+Socket.IO
+  ↓
+live updates
+
+REST
+  ↓
+fallback/reconciliation only
+Phase 5 — Remove fake telemetry
+Delete/replace:
+Math.random()
+99.9%
+85%
+synthetic P50/P99
+synthetic incident timestamps
+fake marketplace downloads
+Operational dashboards must display real telemetry or explicitly say "No data."
+🏆 Final score after the genuinely deeper audit
+Mutex frontend
+8.4/10
+Excellent UI and architecture, but several pages contain stale contracts, fake controls, aggressive polling and security concerns.
+AI-Automation-Platform backend
+8.6/10
+Very strong architecture and security foundation, but there are still several concrete contract/multi-tenancy defects.
+Combined system
+7.4/10
+And I want to emphasize something:
+7.4 does not mean the project is bad.
+It means:
+The architecture is approximately 9/10, but the actual integration and production correctness are currently around 7–8/10.
+That's a very fixable situation.
+The biggest improvement now is not adding more features.
+It is making every existing feature tell the truth:
+If UI says Published     → actual job published
+If UI says Scheduled     → actual persistent schedule exists
+If UI says User Created  → user exists in backend
+If UI says Key = scoped  → key really is scoped
+If UI says 7-day traffic → data really is 7-day traffic
+If UI says Tenant A      → no Tenant B data appears
+If UI says Live Logs     → live log stream actually exists
+Once those invariants are enforced across the two repositories, then we can realistically target 9.5–10/10 production readiness rather than simply making the interface look more complete.

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta http-equiv="Accept-CH" content="DPR, Viewport-Width, Width">
+
+    <!-- Primary meta -->
+    <title>Kanyoza Systems Console</title>
+    <meta name="description" content="Enterprise AI Command Console — real-time telemetry, social media orchestration, security monitoring, and AI engine management." />
+    <meta name="application-name" content="Kanyoza" />
+    <meta name="generator" content="Kanyoza Systems v10" />
+
+    <!-- Theme -->
+    <meta name="theme-color" content="#0A0E17" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F8FAFC" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+
+    <!-- PWA icons -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/jpeg" href="/icon.jpg" sizes="512x512" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.jpg" />
+
+    <!-- Mobile config -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kanyoza" />
+    
+    <style>
+      body {
+        background-color: #0A0E17;
+        margin: 0;
+      }
+      @media (prefers-color-scheme: light) {
+        body {
+          background-color: #F8FAFC;
+        }
+      }
+    </style>
+
+    <!-- Apple Splash Screens — portrait only -->
+    <link rel="apple-touch-startup-image" href="/splash.jpg" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash.jpg" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash.jpg" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash.jpg" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash.jpg" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash.jpg" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <!-- iPhone 14 Pro / 15 -->
+    <link rel="apple-touch-startup-image" href="/splash.jpg" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash.jpg" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Kanyoza Systems Console" />
+    <meta property="og:description" content="Enterprise AI Command Console — real-time telemetry, AI orchestration, and security monitoring." />
+    <meta property="og:image" content="/icon.jpg" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- PWA SW registration is handled by vite-plugin-pwa (autoUpdate mode).
+         The manual /sw.js script has been removed to avoid conflicting with
+         the Workbox-generated service worker produced at build time. -->
+  </body>
+</html>

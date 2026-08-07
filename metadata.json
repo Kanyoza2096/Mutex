@@ -1,0 +1,6 @@
+{
+  "name": "Kanyoza Systems Console",
+  "description": "System administration console clone featuring a modular dashboard, analytics, system status, live logs, task scheduling, and systems management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

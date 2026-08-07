@@ -1,0 +1,577 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* ─────────────────────────────────────────────────────────────────────────
+     Typography
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     DARK MODE
+     Deep-space professional control center
+     
+     Layer hierarchy:
+       brand-bg       → application canvas
+       brand-surface  → cards / panels
+       brand-elevated → menus / dialogs / raised surfaces
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --color-brand-bg:       #080B12;
+  --color-brand-surface:  #0D111B;
+  --color-brand-elevated: #141A29;
+
+  /* Brand */
+  --color-brand-primary: #4F46E5;
+  --color-brand-accent:  #06B6D4;
+
+  /* Semantic status */
+  --color-brand-success: #10B981;
+  --color-brand-warning: #F59E0B;
+  --color-brand-danger:  #EF4444;
+
+  /* Text hierarchy */
+  --color-brand-text:           #F1F5F9;
+  --color-brand-text-secondary: #A8BAD0;
+  --color-brand-text-muted:     #718096;
+
+  /* Borders */
+  --color-brand-border: rgba(148, 163, 184, 0.12);
+
+  /* Shadows / glows */
+  --shadow-glow-primary:
+    0 0 24px rgba(79, 70, 229, 0.35);
+
+  --shadow-glow-accent:
+    0 0 24px rgba(6, 182, 212, 0.35);
+
+  --shadow-glow-success:
+    0 0 24px rgba(16, 185, 129, 0.35);
+
+  --shadow-glow-danger:
+    0 0 24px rgba(239, 68, 68, 0.35);
+
+  --shadow-glow-warning:
+    0 0 24px rgba(245, 158, 11, 0.35);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT MODE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.light {
+  --color-brand-bg:       #F8FAFC;
+  --color-brand-surface:  #FFFFFF;
+  --color-brand-elevated: #F1F5F9;
+
+  --color-brand-primary: #4F46E5;
+  --color-brand-accent:  #0891B2;
+
+  --color-brand-success: #059669;
+  --color-brand-warning: #D97706;
+  --color-brand-danger:  #DC2626;
+
+  --color-brand-text:           #0F172A;
+  --color-brand-text-secondary: #475569;
+  --color-brand-text-muted:     #64748B;
+
+  --color-brand-border: #E2E8F0;
+
+  --shadow-glow-primary:
+    0 0 20px rgba(79, 70, 229, 0.18);
+
+  --shadow-glow-accent:
+    0 0 20px rgba(8, 145, 178, 0.18);
+
+  --shadow-glow-success:
+    0 0 20px rgba(5, 150, 105, 0.18);
+
+  --shadow-glow-danger:
+    0 0 20px rgba(220, 38, 38, 0.18);
+
+  --shadow-glow-warning:
+    0 0 20px rgba(217, 119, 6, 0.18);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+
+  html {
+    scrollbar-gutter: stable;
+
+    /*
+      Firefox scrollbar support.
+      WebKit-specific scrollbar styling is defined below.
+    */
+    scrollbar-width: thin;
+    scrollbar-color:
+      rgba(79, 70, 229, 0.35)
+      transparent;
+  }
+
+  body {
+    @apply bg-brand-bg text-brand-text font-sans antialiased;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    text-rendering: optimizeLegibility;
+
+    /*
+      Prevent accidental horizontal overflow caused by animated UI,
+      dashboards, charts, and responsive panels.
+    */
+    overflow-x: hidden;
+  }
+
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     Accessible keyboard focus
+     ─────────────────────────────────────────────────────────────────────── */
+
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline:
+      2px solid var(--color-brand-primary);
+
+    outline-offset: 2px;
+  }
+
+
+  /*
+    Preserve native focus visibility for elements that explicitly
+    disable their own outline elsewhere.
+  */
+  :focus-visible {
+    outline-color: var(--color-brand-primary);
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEXT SELECTION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+::selection {
+  background-color: rgba(79, 70, 229, 0.30);
+  color: #F1F5F9;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — SURFACES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+
+  /*
+    Standard application surface.
+  */
+  .surface {
+    background-color: var(--color-brand-surface);
+    border: 1px solid var(--color-brand-border);
+  }
+
+
+  /*
+    Raised surface used for menus, popovers, tooltips and modals.
+  */
+  .surface-elevated {
+    background-color: var(--color-brand-elevated);
+    border: 1px solid var(--color-brand-border);
+  }
+
+
+  /*
+    Interactive surface.
+    Keep transitions limited to properties that are actually animated.
+  */
+  .surface-interactive {
+    background-color: var(--color-brand-surface);
+    border: 1px solid var(--color-brand-border);
+
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      transform 150ms ease;
+  }
+
+  .surface-interactive:hover {
+    background-color: var(--color-brand-elevated);
+    border-color:
+      rgba(148, 163, 184, 0.18);
+  }
+
+
+  /*
+    Lightweight status indicator.
+    Prefer this over expensive large box shadows on repeated table rows.
+  */
+  .status-live {
+    box-shadow:
+      0 0 8px rgba(16, 185, 129, 0.55);
+  }
+
+  .status-warning {
+    box-shadow:
+      0 0 8px rgba(245, 158, 11, 0.55);
+  }
+
+  .status-danger,
+  .status-offline {
+    box-shadow:
+      0 0 8px rgba(239, 68, 68, 0.55);
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CUSTOM SCROLLBAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background:
+    rgba(79, 70, 229, 0.25);
+
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background:
+    rgba(79, 70, 229, 0.45);
+}
+
+
+/* Cleaner scrollbar utility */
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+
+/* Thin scrollbar */
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SKELETON LOADING
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.skeleton-pulse {
+  animation:
+    skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOUCH SCROLLING
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TARGETED GPU ACCELERATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/*
+  Canvas visualizers.
+*/
+canvas[class*="visualizer"],
+canvas.particle-canvas {
+  transform: translateZ(0);
+}
+
+
+/*
+  React Flow rendering layers.
+*/
+.react-flow__renderer,
+.react-flow__edges {
+  transform: translateZ(0);
+}
+
+
+/*
+  Do NOT globally apply will-change to every animated element.
+  It is intentionally restricted to expensive visual systems.
+*/
+canvas[class*="visualizer"],
+canvas.particle-canvas,
+.react-flow__renderer {
+  will-change: transform;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATUS PULSE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes status-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.status-pulse {
+  animation:
+    status-pulse 2s ease-in-out infinite;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATA FLOW
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.edge-flow {
+  animation:
+    dash-flow 1s linear infinite;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE TRANSITIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.page-enter {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+
+  transition:
+    opacity 150ms ease-out,
+    transform 150ms ease-out;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE PERFORMANCE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/*
+  Do NOT globally disable backdrop blur.
+
+  Components that genuinely experience rendering problems should opt into
+  a dedicated class rather than having every backdrop-blur utility disabled.
+*/
+
+
+/*
+  Optional utility for components that explicitly need a solid mobile
+  surface instead of a blurred/translucent one.
+
+  Usage:
+    className="mobile-solid-surface"
+*/
+@media (max-width: 768px) {
+
+  .mobile-solid-surface {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+
+    background-color:
+      var(--color-brand-surface) !important;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRINT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media print {
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .bg-brand-bg,
+  .bg-brand-surface,
+  .bg-brand-elevated {
+    background: white !important;
+  }
+
+  .text-brand-text,
+  .text-brand-text-muted,
+  .text-brand-text-secondary {
+    color: black !important;
+  }
+
+
+  /*
+    Hide interactive application chrome.
+  */
+  nav,
+  header,
+  .fixed,
+  button,
+  [class*="bottom-0"] {
+    display: none !important;
+  }
+
+
+  /*
+    Allow printable content to occupy the full page.
+  */
+  main,
+  .flex-1 {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+
+  /*
+    Only show link destinations when explicitly requested by
+    printable content.
+  */
+  .print-show-url a[href]::after {
+    content:
+      " (" attr(href) ")";
+
+    font-size: 0.8em;
+    color: #666;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY — REDUCED MOTION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration:
+      0.01ms !important;
+
+    animation-iteration-count:
+      1 !important;
+
+    transition-duration:
+      0.01ms !important;
+
+    scroll-behavior:
+      auto !important;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE / MOBILE SAFETY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/*
+  Prevent oversized media from escaping their containers.
+*/
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+
+/*
+  Preserve SVG intrinsic sizing when explicitly defined.
+*/
+svg {
+  display: inline-block;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NUMERIC DATA
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tabular-nums {
+  font-variant-numeric:
+    tabular-nums;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OPTIONAL UTILITY — HIGH PERFORMANCE VISUALIZER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/*
+  Apply only to the actual visualizer container.
+
+  This avoids forcing GPU compositing across the entire application.
+*/
+.visualizer-layer {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   END — MUTEX CONTROL CENTER DESIGN SYSTEM
+   ═══════════════════════════════════════════════════════════════════════════ */

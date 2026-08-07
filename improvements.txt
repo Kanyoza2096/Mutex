@@ -1,0 +1,44 @@
+e biggest improvements I’d make are:
+
+1. Build a real Mission Control homepage.
+   Today the dashboard is visually strong, but still mostly a topology plus activity feed, and even hardcodes some KPI values in Dashboard.tsx:L200-L220 . Replace that with one operator view: system health, active incidents, workflow queue, connector failures, recent audit events, and live logs.
+2. Reorganize navigation around operator jobs, not feature pages.
+   The current nav is broad but flat in Layout.tsx:L67-L94 . A premium console should group around Observe , Investigate , Operate , Configure , Govern .
+3. Split the Zustand store into domain modules.
+   Right now useStore.ts:L180-L260 and useStore.ts:L583-L760 mix auth, transport, polling, Supabase, telemetry, and UI state. For a top-tier console, move to domain slices plus TanStack Query for server state.
+4. Add an Incident workflow.
+   Your backend already emits and documents events like worker_error , provider_failed , scan_complete , workflow_* in dashboard.py:L232-L246 and socket_server.py:L151-L181 . The frontend should convert those into incident cards with severity, affected services, suggested actions, and linked evidence.
+5. Turn topology into drilldown, not decoration.
+   The architecture view is useful, but each node should open a service detail page with health, logs, metrics, config, recent failures, and allowed actions. Right now the topology is mostly a visual surface in Dashboard.tsx:L233-L237 .
+6. Make workflow operations first-class.
+   The backend supports history, pause, resume, trigger, cancel, rollback . That deserves a proper run timeline UI, step progress, blast radius, rollback confirmation, and post-run report.
+7. Build a true live log explorer.
+   You already have recent logs, SSE stream, stats . Add a log console with filters, pinning, saved searches, and “jump from incident to logs”.
+8. Make workspace and tenant hierarchy explicit.
+   The backend has workspaces , brands , AI profiles , social accounts , and tenants . The UI should show this as a scoped resource tree, not just selectors.
+9. Stop faking “enterprise” where backend is still stubbed.
+   A few backend endpoints are placeholders: feature toggle , notifications , tenant switch . Premium consoles are honest: show preview , simulated , or read-only states until the backend becomes authoritative.
+10. Add change governance.
+    Use the existing audit logs endpoint to build “who changed what, when, and why”, with approval flows for dangerous operations like workflow pause/resume, connector edits, and AI config changes.
+11. Make the shell more like a real operator desktop.
+    The shell in Layout.tsx:L647-L760 is a good start. Push it further with resizable panes, dockable panels, saved layouts, keyboard-first actions, and persistent operator workspaces.
+12. Create an AI Control Room .
+    Since the frontend already has typed access to AI config, persona, workflow, guardian, metrics , give operators a dedicated room for model routing, prompt overrides, persona rollout, token burn, and failure fallback.
+
+0/7 done
+
+Review existing relevant files to avoid breaking changes
+
+Implement Phase 1: Mission Control Home Page
+
+Implement Phase 1: Incident Center
+
+Implement Phase 1: Live Logs Explorer
+
+Implement Phase 1: Workflow Run Viewer
+
+Run diagnostics to verify no errors
+
+Implement Phase 1: Shell Improvements (Resizable Panels, Workspace Switcher)
+
+Thought
