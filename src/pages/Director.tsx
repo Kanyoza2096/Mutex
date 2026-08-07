@@ -82,7 +82,15 @@ async function apiFetch(path, options = {}) {
     throw new Error('API endpoint is not configured. Please set the REST Base URL in System Config.');
   }
   const token = getMasterToken();
-  const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
+  
+  // Director routes are mounted at root, not under /api/v1
+  const isDirectorPath = path.startsWith('/director');
+  const urlBase = isDirectorPath 
+    ? base.replace(/\/api\/v1\/?$/, '')  // Strip /api/v1 for Director
+    : base;
+  
+  const url = `${urlBase}${path.startsWith('/') ? path : `/${path}`}`;
+  // ... rest stays the same
   const response = await fetch(url, {
     credentials: "include",
     headers: {
