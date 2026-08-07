@@ -43,7 +43,15 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const base = config.restEndpoint.replace(/\/+$/, '');
-  const url = `${base}${path}`;
+  
+  // Paths NOT under /api/v1 need the root URL (Director, Email, etc.)
+  const isApiV1Path = path.startsWith('/api/v1');
+  const urlBase = isApiV1Path
+    ? base
+    : base.replace(/\/api\/v1\/?$/, '');
+  
+  const url = `${urlBase}${path}`;
+  // ... rest unchanged
   // NOTE: Authorization is intentionally NOT set here.
   // The fetchInterceptor (fetchInterceptor.ts) upgrades every API request to
   // use the authenticated Supabase JWT, falling back to masterToken only when
