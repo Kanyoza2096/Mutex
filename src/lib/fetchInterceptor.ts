@@ -17,23 +17,36 @@ if (!(window.fetch as any).__kanyozaPatched) {
     const masterToken = state.masterToken || localStorage.getItem('master_token') || '';
     const cleanBase = restEndpoint.replace(/\/+$/, '');
 
-    // Only intercept requests targeting our REST backend API.
-    // IMPORTANT: `url.includes(cleanBase)` was intentionally removed — when
-    // cleanBase is '' (restEndpoint not configured) that expression evaluates
-    // to true for every URL, which would leak the Bearer token to CDNs,
-    // Supabase, and any other external service the app calls.
+    // Determine if this is a call to our backend
+    const backendHost = cleanBase ? new URL(cleanBase).host : '';
+    const requestHost = url.startsWith('http') ? new URL(url).host : '';
+    const isSameOrigin = !url.startsWith('http') || requestHost === backendHost;
+
+    // Intercept all requests to our backend, including non-/api/v1 routes
+    // like /director, /meta, /email, /health
     const isApiCall =
-      url.includes('/api/v1') ||
-      url.startsWith('/api/') ||
-      (cleanBase !== '' && url.startsWith(cleanBase));
+      isSameOrigin && (
+        url.includes('/api/v1') ||
+        url.startsWith('/api/') ||
+        url.startsWith('/director') ||
+        url.startsWith('/meta') ||
+        url.startsWith('/email') ||
+        url.startsWith('/health') ||
+        url.startsWith('/monitoring') ||
+        url.startsWith('/logs') ||
+        url.startsWith('/metrics') ||
+        url.startsWith('/workflow') ||
+        url.startsWith('/guardian') ||
+        url.startsWith('/system') ||
+        url.startsWith('/persona') ||
+        (cleanBase !== '' && url.startsWith(cleanBase))
+      );
 
     if (!isApiCall) {
       return originalFetch.apply(this, [input, init] as any);
     }
 
     // Prefer the authenticated user's Supabase JWT over the shared master token.
-    // This scopes backend requests to the authenticated operator rather than
-    // relying on a single shared admin credential for all users of the console.
     let bearerToken = masterToken;
     if (isSupabaseConfigured()) {
       try {
@@ -48,8 +61,7 @@ if (!(window.fetch as any).__kanyozaPatched) {
     if (bearerToken && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${bearerToken}`);
     }
-    // Only inject Content-Type for non-multipart requests — let the browser set
-    // the boundary automatically for multipart/form-data file uploads.
+    // Only inject Content-Type for non-multipart requests
     const existingCT = headers.get('Content-Type') || '';
     if (!existingCT && !String(init?.body instanceof FormData ? 'multipart' : '').includes('multipart')) {
       headers.set('Content-Type', 'application/json');
